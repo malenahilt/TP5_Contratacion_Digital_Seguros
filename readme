@@ -1,0 +1,210 @@
+# Cubrí Seguros · Flujo de contratación digital
+
+Front-end de un checkout de contratación de **Seguro de Celular**: el usuario cotiza, elige un plan, carga sus datos, paga (simulado) y recibe su número de póliza.
+
+Trabajo Práctico de **Diseño UXUI 2026** · Licenciatura en Sistemas de Información · FCyT, Sede Concepción del Uruguay.
+
+- **Sitio publicado:** `https://digitalseguros.netlify.app/` 
+- **Repositorio:** `https://github.com/malenahilt/TP5_Contratacion_Digital_Seguros.git` 
+- **Diseño en Figma:** https://www.figma.com/design/vJrfOUfiOI7OSeTtRfCloh
+
+---
+
+## Capturas
+
+### Mobile (390 px)
+
+| Inicio | Cotizar | Elegir plan | Datos |
+|---|---|---|---|
+| ![Inicio mobile](capturas/mobile-01-inicio.png) | ![Cotizar mobile](capturas/mobile-02-cotizar.png) | ![Planes mobile](capturas/mobile-03-planes.png) | ![Datos mobile](capturas/mobile-04-datos.png) |
+
+| Pago | Éxito | Error de pago |
+|---|---|---|
+| ![Pago mobile](capturas/mobile-05-pago.png) | ![Éxito mobile](capturas/mobile-06-exito.png) | ![Error mobile](capturas/mobile-07-error.png) |
+
+### Desktop (1440 px)
+
+| Inicio | Cotizar | Elegir plan | Datos |
+|---|---|---|---|
+| ![Inicio desktop](capturas/desktop-01-inicio.png) | ![Cotizar desktop](capturas/desktop-02-cotizar.png) | ![Planes desktop](capturas/desktop-03-planes.png) | ![Datos desktop](capturas/desktop-04-datos.png) |
+
+| Pago | Éxito | Error de pago |
+|---|---|---|
+| ![Pago desktop](capturas/desktop-05-pago.png) | ![Éxito desktop](capturas/desktop-06-exito.png) | ![Error desktop](capturas/desktop-07-error.png) |
+
+---
+
+## Stack
+
+- HTML5
+- Tailwind CSS v4 (CDN, sin build)
+- Basecoat UI (solo CSS)
+- JavaScript vanilla con módulos ES (sin frameworks ni librerías de validación)
+- Tipografía Inter (Google Fonts)
+
+## Cómo correrlo
+
+No requiere compilación, pero **no se puede abrir con doble click** (`file://`), porque `fetch('data/planes.json')` y los módulos ES fallan fuera de un servidor. Hay que servirlo:
+
+```bash
+# Opción 1: extensión Live Server de VS Code
+# Click derecho en index.html → "Open with Live Server"
+
+# Opción 2: desde la terminal
+npx serve
+```
+
+Después abrí la URL que indique la consola (por ejemplo `http://localhost:3000`).
+
+## Estructura del proyecto
+
+```
+cubri-seguros/
+├── index.html            # una sola página; cada paso es una <section data-paso="n">
+├── css/
+│   └── tokens.css        # variables de Basecoat sobrescritas (color primario, radio)
+├── data/
+│   └── planes.json       # planes y tasas anuales, se cargan con fetch
+├── js/
+│   ├── app.js            # arranque, eventos y navegación
+│   ├── estado.js         # objeto `solicitud` + funciones para modificarlo
+│   ├── render.js         # pinta cada paso a partir del estado
+│   ├── validaciones.js   # funciones puras: reciben un valor y devuelven error o null
+│   ├── cotizador.js      # calcularCuota()
+│   └── pago.js           # simularPago() y generarPoliza()
+└── README.md
+```
+
+## Decisiones tomadas
+
+**Un único estado.** Toda la información del flujo vive en el objeto `solicitud` (paso, equipo, plan, titular, pago y póliza). El DOM solo muestra lo que dice el estado: nunca se lee un precio de un `<span>` para calcular algo. Cada evento modifica `solicitud` y después llama a `render()`.
+
+**Pasos con `hidden`.** Cada paso es una `<section>` que se muestra u oculta con el atributo `hidden`, en lugar de crear y destruir HTML. Así los inputs conservan lo que el usuario escribió y "Volver" no pierde datos. Además, `render()` rellena los inputs desde el estado.
+
+**Una sola función de cálculo.** `calcularCuota()` es la única fuente de las cuotas, por lo que el precio de las cards de plan y el del resumen no pueden diferir.
+
+**Resumen generado una sola vez.** `renderResumen()` arma el resumen desde el estado y el mismo bloque sirve para mobile (barra fija) y desktop (card lateral) cambiando solo el layout con clases `lg:`, sin duplicar HTML.
+
+**Validaciones como funciones puras.** Cada `validarX(valor)` devuelve un mensaje de error o `null`. Se muestran en `blur` (al salir del campo) y se revalidan todos los campos al intentar avanzar, con foco en el primer campo inválido.
+
+**Botones deshabilitados con explicación.** "Ver planes", "Continuar al pago" y "Pagar y contratar" quedan deshabilitados hasta que todo sea válido, y debajo se muestra qué campos faltan.
+
+**Anti doble click.** "Pagar" se deshabilita apenas se hace click, muestra "Procesando…" durante 1,5 s y solo se vuelve a habilitar si el pago falla.
+
+**Mobile first.** Se maquetó primero a 390 px y se agregaron los cambios de escritorio con el prefijo `lg:` de Tailwind (checkout en dos columnas con `lg:grid-cols-[1fr_380px]`, planes en fila, etc.).
+
+**Componentes.** Se usaron los de Basecoat siempre que existen (`btn`, `field`, `card`, `badge`, `alert`). El stepper y las cards de plan se armaron con utilidades de Tailwind.
+
+## Reglas de negocio
+
+### Cálculo de la cuota
+
+```js
+cuota = Math.round(valor * tasaAnual / 12 * factorAntiguedad)
+```
+
+| Plan | Tasa anual | Coberturas |
+|---|---|---|
+| Básico | 4 % | Robo con violencia |
+| Plus (recomendado) | 6 % | Robo con violencia + rotura de pantalla |
+| Premium | 9 % | Robo, rotura total y hurto/pérdida |
+
+| Antigüedad | Factor |
+|---|---|
+| Menos de 1 año | 1,00 |
+| 1 a 2 años | 1,10 |
+| Más de 2 años | 1,25 |
+
+### Casos de prueba verificados
+
+| Valor | Antigüedad | Básico | Plus | Premium |
+|---|---|---|---|---|
+| $ 600.000 | Menos de 1 año | $ 2.000 | $ 3.000 | $ 4.500 |
+| $ 600.000 | 1 a 2 años | $ 2.200 | $ 3.300 | $ 4.950 |
+| $ 1.200.000 | Más de 2 años | $ 5.000 | $ 7.500 | $ 11.250 |
+
+### Validaciones
+
+| Campo | Regla |
+|---|---|
+| Marca | Obligatoria |
+| Modelo | 2 a 40 caracteres |
+| Valor del equipo | Entre $100.000 y $2.500.000 |
+| Antigüedad | Una opción elegida |
+| Nombre / Apellido | Mínimo 2 letras |
+| DNI | `/^\d{7,8}$/` |
+| Fecha de nacimiento | Mayor de 18 años |
+| Email | `/^[^\s@]+@[^\s@]+\.[^\s@]+$/` |
+| Celular | 10 dígitos sin 0 ni 15 (se ignoran espacios y guiones) |
+| Términos | Tildado |
+| Tarjeta | 16 dígitos (se ignoran espacios) |
+| Vencimiento | MM/AA, mes 01–12 y fecha futura |
+| CVV | 3 dígitos |
+| Titular de la tarjeta | Obligatorio |
+
+### Pago simulado
+
+No hay backend ni pagos reales. `simularPago()` espera 1,5 s y responde según el número de tarjeta:
+
+| Tarjeta de prueba | Resultado |
+|---|---|
+| `4111 1111 1111 1111` | Aprobado → pantalla de éxito |
+| `4000 0000 0000 0002` | Rechazado → pantalla de error |
+| Cualquier otra tarjeta válida | Aprobado |
+
+> Nunca se usaron datos de tarjetas reales.
+
+El número de póliza tiene el formato `POL-AAAA-NNNNNN` (por ejemplo, `POL-2026-000123`).
+
+## Flujo
+
+```
+Inicio → Paso 1 Cotizar → Paso 2 Plan → Paso 3 Datos → Paso 4 Pago ─┬─ Aprobado → Éxito → Inicio
+                                                                    └─ Rechazado → Error → Paso 4 (datos conservados)
+```
+
+El stepper indica en todas las pantallas qué pasos están completos, cuál está activo y cuáles pendientes. "Volver" lleva al paso anterior sin perder datos.
+
+## Accesibilidad
+
+- Cada input tiene su `<label for>`.
+- Los errores usan `aria-invalid="true"`, `aria-describedby` y `role="alert"`.
+- Al intentar avanzar con errores, el foco va al primer campo inválido.
+- Los estados de error se muestran con borde rojo **y** mensaje de texto, no solo con color.
+
+## Bonus realizados
+
+<!-- Dejá solo los que hiciste y borrá el resto -->
+
+- [ ] Persistencia de `solicitud` en `localStorage` (se limpia al terminar)
+- [ ] Editar desde el resumen
+- [ ] Toast de Basecoat al confirmar el pago
+- [ ] Otro producto habilitado (Bicicleta / Viaje)
+- [ ] Máscaras de input (tarjeta en grupos de 4, vencimiento con barra automática)
+- [ ] Modo oscuro
+- [ ] Setup con Vite y deploy con GitHub Actions
+
+## Checklist de entrega
+
+- [x] Las 7 pantallas existen y se ven bien en 390 px y en 1440 px
+- [x] Los 3 casos de prueba dan exactamente el valor esperado
+- [x] No se puede avanzar con datos inválidos y cada error tiene su mensaje
+- [x] "Volver" conserva los datos en todos los pasos
+- [x] La tarjeta `4000 0000 0000 0002` lleva al error y "Reintentar pago" vuelve al paso 4 con todo cargado
+- [x] La póliza tiene formato `POL-AAAA-NNNNNN`
+- [x] No hay errores en la consola del navegador
+- [x] El sitio está publicado y el README tiene capturas y la URL
+
+## Hitos
+
+| Hito | Contenido |
+|---|---|
+| H1 · Maquetado | Las 7 pantallas en HTML + Basecoat, mobile y desktop |
+| H2 · Navegación y estado | Objeto `solicitud`, `render()`, stepper y "Volver" |
+| H3 · Validaciones y cálculo | Validaciones, botones deshabilitados, `planes.json` y cuotas |
+| H4 · Pago y cierre | Pago simulado, éxito/error, póliza, README y deploy |
+
+## Autor
+
+**TU NOMBRE Y APELLIDO** <!-- reemplazar -->
+Diseño UXUI 2026 · Licenciatura en Sistemas de Información · FCyT, Sede Concepción del Uruguay
